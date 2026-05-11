@@ -11,7 +11,7 @@ export default function PeakTraffic() {
   if (!data) {
     return (
       <div style={{ padding: "30px" }}>
-        <h2>🔥 Peak Traffic</h2>
+        <h2> Peak Traffic</h2>
         <p>Loading...</p>
       </div>
     );
@@ -25,7 +25,7 @@ export default function PeakTraffic() {
         minHeight: "100vh",
       }}
     >
-      <h2 style={{ marginBottom: "20px" }}>🔥 Peak Traffic Analysis</h2>
+      <h2 style={{ marginBottom: "20px" }}> Peak Traffic Analysis</h2>
 
       <div
         style={{
@@ -34,9 +34,9 @@ export default function PeakTraffic() {
           gap: "20px",
         }}
       >
-        {/* ✅ TOP HOURS CARD */}
+        {/*  TOP HOURS CARD */}
         <div style={cardStyle}>
-          <h3 style={{ marginBottom: "10px" }}>⏰ Top Hours</h3>
+          <h3 style={{ marginBottom: "10px" }}> Top Hours</h3>
           {data.top_hours.map((h, i) => (
             <div key={i} style={rowStyle}>
               <span>Hour {h.hour}</span>
@@ -47,7 +47,7 @@ export default function PeakTraffic() {
           ))}
         </div>
 
-        {/* ✅ TOP REGIONS CARD */}
+        {/*  TOP REGIONS CARD */}
         <div style={cardStyle}>
           <h3 style={{ marginBottom: "10px" }}>📍 Top Regions</h3>
           {data.top_regions.map((r, i) => (
@@ -64,7 +64,7 @@ export default function PeakTraffic() {
   );
 }
 
-/* ✅ CARD STYLE */
+/*  CARD STYLE */
 const cardStyle = {
   background: "white",
   padding: "20px",
@@ -72,7 +72,7 @@ const cardStyle = {
   boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
 };
 
-/* ✅ ROW STYLE */
+/*  ROW STYLE */
 const rowStyle = {
   display: "flex",
   justifyContent: "space-between",

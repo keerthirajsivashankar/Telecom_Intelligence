@@ -26,9 +26,9 @@ export default function RegionExplorer() {
         minHeight: "100vh",
       }}
     >
-      <h2 style={{ marginBottom: "20px" }}>🌍 Region Explorer</h2>
+      <h2 style={{ marginBottom: "20px" }}> Region Explorer</h2>
 
-      {/* ✅ Search Box Card */}
+      {/*  Search Box Card */}
       <div
         style={{
           background: "white",
@@ -68,7 +68,7 @@ export default function RegionExplorer() {
         </button>
       </div>
 
-      {/* ✅ DATA TABLE */}
+      {/*  DATA TABLE */}
       {data && (
         <div
           style={{
@@ -113,7 +113,7 @@ export default function RegionExplorer() {
   );
 }
 
-/* ✅ TABLE STYLES */
+/*  TABLE STYLES */
 const th = {
   padding: "10px",
   borderBottom: "1px solid #ccc",

@@ -11,7 +11,7 @@ export default function Dashboard() {
   if (!data) {
     return (
       <div style={{ padding: "30px" }}>
-        <h2>📊 Usage Dashboard</h2>
+        <h2> Usage Dashboard</h2>
         <p>Loading...</p>
       </div>
     );
@@ -25,9 +25,9 @@ export default function Dashboard() {
         minHeight: "100vh",
       }}
     >
-      <h1 style={{ marginBottom: "20px" }}>📊 Telecom Dashboard</h1>
+      <h1 style={{ marginBottom: "20px" }}> Telecom Dashboard</h1>
 
-      {/* ✅ KPI GRID */}
+      {/*  KPI GRID */}
       <div
         style={{
           display: "grid",
@@ -35,15 +35,15 @@ export default function Dashboard() {
           gap: "20px",
         }}
       >
-        {renderCard("📞 Total Calls", data.total_calls, "#4CAF50")}
-        {renderCard("✉️ Total SMS", data.total_sms, "#2196F3")}
+        {renderCard(" Total Calls", data.total_calls, "#4CAF50")}
+        {renderCard(" Total SMS", data.total_sms, "#2196F3")}
         {renderCard(
-          "🌐 Internet MB",
+          " Internet MB",
           data.total_internet_mb.toFixed(2),
           "#FF9800",
         )}
-        {renderCard("⏰ Peak Hour", data.peak_hour, "#9C27B0")}
-        {renderCard("📍 Busiest Region", data.busiest_region, "#F44336")}
+        {renderCard(" Peak Hour", data.peak_hour, "#9C27B0")}
+        {renderCard(" Busiest Region", data.busiest_region, "#F44336")}
       </div>
     </div>
   );

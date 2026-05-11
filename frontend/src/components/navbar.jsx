@@ -12,10 +12,10 @@ export default function NavBar() {
         alignItems: "center",
       }}
     >
-      {/* ✅ LOGO / APP NAME */}
-      <h2 style={{ margin: 0 }}>📡 Telecom AI</h2>
+      {/*  LOGO / APP NAME */}
+      <h2 style={{ margin: 0 }}> Telecom AI</h2>
 
-      {/* ✅ NAV LINKS */}
+      {/*  NAV LINKS */}
       <div style={{ display: "flex", gap: "20px" }}>
         <StyledLink to="/">Dashboard</StyledLink>
         <StyledLink to="/region">Region</StyledLink>
@@ -26,7 +26,7 @@ export default function NavBar() {
   );
 }
 
-/* ✅ REUSABLE LINK STYLE */
+/* REUSABLE LINK STYLE */
 function StyledLink({ to, children }) {
   return (
     <Link
