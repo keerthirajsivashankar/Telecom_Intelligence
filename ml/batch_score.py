@@ -3,7 +3,9 @@ import mysql.connector
 from feature_engineering import build_features
 from predict import predict_usage_risk
 
-#  DB connection
+# -------------------
+# DB CONNECTION
+# -------------------
 conn = mysql.connector.connect(
     host="localhost",
     user="keerthi",
@@ -11,40 +13,49 @@ conn = mysql.connector.connect(
     database="telecom_db"
 )
 
-# Load fact data
+# -------------------
+# LOAD DATA
+# -------------------
+print("Loading data from DB...")
 df = pd.read_sql("SELECT * FROM fact_usage", conn)
 
-# Build features (same as training)
+# -------------------
+# BUILD FEATURES
+# -------------------
 features = build_features(df)
 
+print(f" Total regions: {len(features)}")
+
+# -------------------
+# PREDICTIONS
+# -------------------
 results = []
 
-print(" Running batch predictions...")
+print("Running batch predictions...")
 
-#  Loop through each row (region + time level now)
 for _, row in features.iterrows():
 
     feature_input = {
         "avg_usage": float(row["avg_usage"]),
         "growth_rate": float(row["growth_rate"]),
         "variability": float(row["variability"]),
-        # ❗ peak_ratio is NOT passed (computed in predict.py)
+        "peak_ratio": float(row["peak_ratio"])
     }
 
     pred = predict_usage_risk(feature_input)
 
     results.append({
         "region_id": row["region_id"],
-        "time_id": row["time_id"],
         "congestion_risk": pred["congestion_risk"],
         "anomaly_flag": pred["anomaly_flag"],
         "score": pred["score"]
     })
 
-#  Convert to dataframe
+# -------------------
+# SAVE OUTPUT
+# -------------------
 output = pd.DataFrame(results)
 
-#  Save output
 output.to_csv("ml/batch_predictions.csv", index=False)
 
-print(" Batch predictions saved to ml/batch_predictions.csv")
+print("\nBatch predictions saved to ml/batch_predictions.csv")

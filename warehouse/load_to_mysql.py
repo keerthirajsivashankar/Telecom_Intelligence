@@ -2,74 +2,107 @@ import pandas as pd
 import mysql.connector
 import glob
 
-# connect MySQL
+# -----------------------------
+# CONNECT DB
+# -----------------------------
 conn = mysql.connector.connect(
     host="localhost",
     user="keerthi",
     password="1234",
-    database="telecom_db"
+    database="telecom_db"  
 )
 
 cursor = conn.cursor()
 
-#  read parquet files
-files = glob.glob("../data/processed/usage_data/**/*.parquet", recursive=True)
+# -----------------------------
+# LOAD PARQUET
+# -----------------------------
+files = glob.glob("data/processed/usage_data/**/*.parquet", recursive=True)
 
-dfs = []
-for f in files[:50]:   # limit files
-    df = pd.read_parquet(f)
-    dfs.append(df)
-
+dfs = [pd.read_parquet(f) for f in files]
 data = pd.concat(dfs, ignore_index=True)
 
-#  control size
-data = data.head(200000)
+print("========== ORIGINAL DATA ==========")
+print(f"Total rows read: {len(data)}")
 
-print("========== BEFORE LOAD ==========")
-print(f"Rows going into FACT table: {len(data)}")
+# -----------------------------
+#  CHECK REGION DISTRIBUTION (BEFORE SAMPLING)
+# -----------------------------
+print("\n========== REGION DISTRIBUTION (BEFORE) ==========")
+print(data['region_name'].value_counts())
 
-#  CLEAN REGION DATA (VERY IMPORTANT FIX)
-data['region_name'] = data['region_name'].fillna("Unknown").astype(str).str.strip()
-data['city'] = data['city'].fillna("Unknown").astype(str).str.strip()
-
-#  ---------- STEP 1: DIM_TIME ----------
+# -----------------------------
+#  CLEAN DATA
+# -----------------------------
+data['region_name'] = data['region_name'].astype(str).str.strip()
+data['city'] = data['city'].astype(str).str.strip()
 
 data['datetime'] = pd.to_datetime(data['datetime'])
+data['date'] = data['datetime'].dt.date
+data['hour'] = data['datetime'].dt.hour
 
-dim_time = data[['datetime']].drop_duplicates().copy()
+# -----------------------------
+#  BALANCED SAMPLING (IMPORTANT)
+# -----------------------------
+print("\n========== SAMPLING ==========")
 
-dim_time['date'] = dim_time['datetime'].dt.date
-dim_time['hour'] = dim_time['datetime'].dt.hour
-dim_time['day'] = dim_time['datetime'].dt.day
-dim_time['month'] = dim_time['datetime'].dt.month
-dim_time['weekday'] = dim_time['datetime'].dt.day_name()
+sample_per_region = 200000   # 200k × 4 = 800k total
 
-dim_time = dim_time.drop(columns=['datetime']).drop_duplicates()
+samples = []
 
-print("\n========== DIM TIME ==========")
-print(f" dim_time rows: {len(dim_time)}")
+for region in ["North", "South", "East", "West"]:
+    region_df = data[data['region_name'] == region]
 
-# insert dim_time
+    region_sample = region_df.sample(
+        n=min(sample_per_region, len(region_df)),
+        random_state=42
+    )
+
+    samples.append(region_sample)
+
+# Combine all regions
+data = pd.concat(samples, ignore_index=True)
+
+print(f" Final sampled rows: {len(data)}")
+
+# -----------------------------
+#  CHECK AFTER SAMPLING
+# -----------------------------
+print("\n========== REGION DISTRIBUTION (AFTER) ==========")
+print(data['region_name'].value_counts())
+
+# -----------------------------
+# DIM_TIME
+# -----------------------------
+print("\n========== DIM_TIME LOAD ==========")
+
+dim_time = data[['date', 'hour']].drop_duplicates().copy()
+
+dim_time['day'] = pd.to_datetime(dim_time['date']).dt.day
+dim_time['month'] = pd.to_datetime(dim_time['date']).dt.month
+dim_time['weekday'] = pd.to_datetime(dim_time['date']).dt.day_name()
+
 time_map = {}
 
 for _, row in dim_time.iterrows():
     cursor.execute("""
         INSERT INTO dim_time (date, hour, day, month, weekday)
         VALUES (%s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE time_id=LAST_INSERT_ID(time_id)
     """, tuple(row))
 
     time_id = cursor.lastrowid
-    key = (row['date'], row['hour'])
-    time_map[key] = time_id
+    time_map[(row['date'], row['hour'])] = time_id
 
 conn.commit()
+print(f" dim_time loaded: {len(time_map)} rows")
 
-#  ---------- STEP 2: DIM_REGION ----------
+# -----------------------------
+# DIM_REGION
+# -----------------------------
+print("\n========== DIM_REGION LOAD ==========")
 
 dim_region = data[['region_name', 'city']].drop_duplicates()
-
-print("\n========== DIM REGION ==========")
-print(f"dim_region rows: {len(dim_region)}")
 
 region_map = {}
 
@@ -77,51 +110,42 @@ for _, row in dim_region.iterrows():
     cursor.execute("""
         INSERT INTO dim_region (region_name, city)
         VALUES (%s, %s)
+        ON DUPLICATE KEY UPDATE region_id=LAST_INSERT_ID(region_id)
     """, tuple(row))
 
     region_id = cursor.lastrowid
-    key = (row['region_name'], row['city'])
-    region_map[key] = region_id
+    region_map[(row['region_name'], row['city'])] = region_id
 
 conn.commit()
+print(f" dim_region loaded: {len(region_map)} rows")
 
-# ---------- STEP 3: FACT TABLE ----------
-
-data['date'] = data['datetime'].dt.date
-data['hour'] = data['datetime'].dt.hour
-
-batch_size = 5000
-rows = []
-inserted_count = 0
-
+# -----------------------------
+# FACT TABLE
+# -----------------------------
 print("\n========== FACT LOAD START ==========")
+
+batch_size = 50000
+rows = []
+inserted = 0
+skipped = 0
 
 for i, row in enumerate(data.itertuples(index=False), start=1):
 
-    # FIXED REGION MAPPING
-    region_key = (str(row.region_name).strip(), str(row.city).strip())
-    region_id = region_map.get(region_key)
-
     time_id = time_map.get((row.date, row.hour))
+    region_id = region_map.get((row.region_name, row.city))
 
-    # skip invalid mappings
-    if region_id is None or time_id is None:
+    if time_id is None or region_id is None:
+        skipped += 1
         continue
-
-    # NULL-safe calculations
-    call_count = (row.callin or 0) + (row.callout or 0)
-    sms_count = (row.smsin or 0) + (row.smsout or 0)
-    internet = row.internet or 0
 
     rows.append((
         time_id,
         region_id,
-        int(call_count),
-        int(sms_count),
-        float(internet)
+        int((row.callin or 0) + (row.callout or 0)),
+        int((row.smsin or 0) + (row.smsout or 0)),
+        float(row.internet or 0)
     ))
 
-    # batch insert
     if len(rows) >= batch_size:
         cursor.executemany("""
             INSERT INTO fact_usage
@@ -131,16 +155,14 @@ for i, row in enumerate(data.itertuples(index=False), start=1):
 
         conn.commit()
 
-        inserted_count += len(rows)
-        print(f" Inserted batch: {len(rows)} | Total: {inserted_count}")
+        inserted += len(rows)
+        print(f" Inserted: {inserted}")
+        rows.clear()
 
-        rows = []
+    if i % 50000 == 0:
+        print(f"Processed: {i}")
 
-    #  progress log
-    if i % 20000 == 0:
-        print(f"⏳ Processed: {i}")
-
-#  insert remaining
+#  FINAL INSERT
 if rows:
     cursor.executemany("""
         INSERT INTO fact_usage
@@ -149,12 +171,15 @@ if rows:
     """, rows)
 
     conn.commit()
-    inserted_count += len(rows)
+    inserted += len(rows)
 
-#  FINAL SUMMARY
-print("\n========== FINAL LOAD SUMMARY ==========")
-print(f" Rows intended: {len(data)}")
-print(f" Rows inserted: {inserted_count}")
+# -----------------------------
+# FINAL LOG
+# -----------------------------
+print("\n========== FINAL SUMMARY ==========")
+print(f"Total rows loaded : {len(data)}")
+print(f"Inserted rows     : {inserted}")
+print(f"Skipped rows      : {skipped}")
 
 cursor.close()
 conn.close()

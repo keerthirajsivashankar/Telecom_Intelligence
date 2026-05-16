@@ -7,6 +7,7 @@ export default function RiskPrediction() {
     avg_usage: "",
     growth_rate: "",
     variability: "",
+    peak_ratio: "",
   });
 
   const [res, setRes] = useState(null);
@@ -17,6 +18,7 @@ export default function RiskPrediction() {
       avg_usage: Number(form.avg_usage),
       growth_rate: Number(form.growth_rate),
       variability: Number(form.variability),
+      peak_ratio: Number(form.peak_ratio),
     });
 
     setRes(result);
@@ -68,6 +70,12 @@ export default function RiskPrediction() {
           placeholder="Variability"
           style={inputStyle}
           onChange={(e) => setForm({ ...form, variability: e.target.value })}
+        />
+
+        <input
+          placeholder="Peak Ratio"
+          style={inputStyle}
+          onChange={(e) => setForm({ ...form, peak_ratio: e.target.value })}
         />
 
         {/* Button */}

@@ -67,6 +67,7 @@ class PredictRequest(BaseModel):
     avg_usage: float
     growth_rate: float
     variability: float
+    peak_ratio: float 
 
 
 class PredictResponse(BaseModel):
@@ -273,6 +274,9 @@ def features(region: str):
 
 @app.post("/predict-usage-risk", response_model=PredictResponse)
 def predict(data: PredictRequest):
+    
+    if data.avg_usage <= 0:
+        raise HTTPException(status_code=400, detail="Invalid avg_usage")
 
     result = predict_usage_risk(data.dict())
 
